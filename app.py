@@ -1,88 +1,66 @@
 import streamlit as st
-import os
-import subprocess
-import sys
-
-# --- 架构师的暴力安装脚本 Start ---
-# 如果系统里找不到 AI 库，就当场强行安装，不再依赖 requirements.txt
-try:
-    import google.generativeai as genai
-except ImportError:
-    st.toast("正在初始化 AI 引擎，请稍候...", icon="⚙️")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "google-generative-ai"])
-    import google.generativeai as genai
-# --- 架构师的暴力安装脚本 End ---
-
+import google.generativeai as genai
 from PIL import Image
 
-# 页面配置
-st.set_page_config(page_title="RenderMate: AI Art Director", layout="wide", page_icon="🎨")
+# 页面基础设置
+st.set_page_config(page_title="RenderMate", page_icon="🎨", layout="wide")
 
-# 侧边栏
+# 侧边栏配置
 with st.sidebar:
-    st.header("⚙️ Configuration")
-    api_key = st.text_input("Enter Google API Key", type="password", help="Get yours at aistudio.google.com")
-    
-    st.divider()
-    
-    uploaded_file = st.file_uploader("Upload WIP Render", type=["jpg", "png", "jpeg"])
-    target_vibe = st.text_input("Target Vibe / Style", placeholder="e.g. Cyberpunk, Moody, Clean Product Shot")
-    
-    analyze_btn = st.button("Analyze & Optimize", type="primary", use_container_width=True)
-    
+    st.header("🔑 密钥配置")
+    api_key = st.text_input("输入 Google API Key", type="password")
     st.markdown("---")
-    st.markdown("Designed by **RenderMate Architect**")
+    st.header("📂 素材上传")
+    uploaded_file = st.file_uploader("拖入你的渲染图", type=["jpg", "png", "jpeg"])
+    target_vibe = st.text_input("目标风格 (可选)", placeholder="例如：赛博朋克，高级灰，自然光")
+    go_btn = st.button("开始分析 (Analyze)", type="primary", use_container_width=True)
 
 # 主界面
-st.title("🎨 RenderMate: C4D & Octane Art Director")
+st.title("🎨 RenderMate: AI 美术指导")
 
-col1, col2 = st.columns([1, 1])
+col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("Your Render (WIP)")
-    if uploaded_file is not None:
+    st.subheader("原始渲染 (WIP)")
+    if uploaded_file:
         image = Image.open(uploaded_file)
         st.image(image, use_container_width=True)
     else:
-        st.info("👈 Please upload an image from the sidebar.")
+        st.info("👈 请在左侧上传图片")
 
 with col2:
-    st.subheader("AI Director's Feedback")
-    
-    if analyze_btn and uploaded_file and api_key:
+    st.subheader("AI 诊断报告")
+    if go_btn and uploaded_file and api_key:
         try:
-            # 配置 API
+            # 配置 AI
             genai.configure(api_key=api_key)
             model = genai.GenerativeModel('gemini-1.5-pro')
             
-            # 构建 Prompt
-            system_prompt = f"""
-            You are a Senior 3D Technical Director specializing in Cinema 4D and Octane Render.
-            Analyze the uploaded image. The user wants to achieve this style: "{target_vibe}".
-            
-            Provide output in 3 distinct Markdown sections:
-            
-            ### 1. 👁 Visual Critique (犀利点评)
-            * Analyze Lighting (Contrast, Ratios, HDRI).
-            * Analyze Materials (Realism, Imperfections, Index of Refraction).
-            * Analyze Composition.
-            
-            ### 2. 🛠 Technical Fixes (OC 参数修正)
-            * Provide specific, actionable steps. 
-            * USE BOLD for specific Octane nodes/terms (e.g. **Dirt Node**, **ACES**, **Ray Epsilon**, **Cast Shadows**).
-            * Be very technical and precise.
-            
-            ### 3. 🎨 Visual Reference Prompt (视觉参考)
-            * Write a high-quality prompt that describes the PERFECT version of this image.
-            """
-            
-            with st.spinner("🤖 AI Director is analyzing your render..."):
-                response = model.generate_content([system_prompt, image])
+            with st.spinner("🧠 正在分析光影与材质..."):
+                prompt = f"""
+                角色：你是一位资深的 Octane 渲染专家 (TD) 和美术指导。
+                任务：分析这张图片。用户想要达到的风格是："{target_vibe}"。
+                
+                请用 Markdown 格式输出以下三部分建议：
+                
+                ### 1. 👁 视觉诊断 (Visual Critique)
+                * 点评光影 (对比度, 曝光, HDRI)。
+                * 点评材质 (真实感, 细节, 瑕疵)。
+                * 点评构图。
+                
+                ### 2. 🛠 OC 技术修正 (Technical Fixes)
+                * 给出具体的 C4D/Octane 操作步骤。
+                * 必须使用专业术语 (如: **Dirt Node**, **ACES**, **Ray Epsilon**, **Cast Shadows**, **IOR**, **Dispersion**)。
+                
+                ### 3. 🎨 参考图提示词 (Visual Prompt)
+                * 写一段高质量的英文 Prompt，描述这张图的完美状态。
+                """
+                
+                response = model.generate_content([prompt, image])
                 st.markdown(response.text)
                 
         except Exception as e:
-            st.error(f"An error occurred: {e}")
-            st.warning("Please check your API Key and try again.")
-            
-    elif analyze_btn and not api_key:
-        st.warning("Please enter your Google API Key in the sidebar first.")
+            st.error(f"发生错误: {e}")
+            st.caption("请检查 API Key 是否正确，或者网络是否通畅。")
+    elif go_btn and not api_key:
+        st.warning("⚠️ 请先在左侧填入 API Key！")
